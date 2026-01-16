@@ -34,6 +34,11 @@ int main(int argc, char** argv) {
     auto* view = new InstallationView();
     view->setScene(scene);
 
+    QObject::connect(scene, &InstallationScene::elementSelected,
+                     [](QString type, QString id){
+                         qDebug() << "Selected:" << type << id;
+                     });
+
     QMainWindow win;
     win.setCentralWidget(view);
     win.resize(1400, 900);

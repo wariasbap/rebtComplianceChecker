@@ -14,7 +14,7 @@ set(HEADERS
     Electrical.hpp
     JsonAdapters.hpp
     SvgHelper.hpp
-    Visualise.hpp
+    #Visualise.hpp
     InstallationView.hpp
     InstallationScene.hpp
 )
