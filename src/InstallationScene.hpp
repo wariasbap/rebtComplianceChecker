@@ -81,6 +81,8 @@ public:
 signals:
     void deviceMovedMeters(QString id, QPointF newPosMeters);
     void deviceSelected(QString type, QString id);
+    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters);
+    
 
 protected:
     QVariant itemChange(GraphicsItemChange change,
@@ -120,7 +122,15 @@ protected:
             emit deviceSelected("device",
                                 QString::fromStdString(m_device->id));
         }
+        
+                emit deviceSelectedDetailed(
+    QString::fromStdString(m_device->id),
+    QString::fromStdString(m_device->type),
+    QPointF(m_device->position[0], m_device->position[1])
+);
         QGraphicsEllipseItem::mousePressEvent(e);
+
+
     }
 
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* e) override {
@@ -179,6 +189,9 @@ public:
 
 signals:
     void segmentSelected(QString type, QString id);
+    void routeSelectedDetailed(QString id, QString type, QString room,
+                               QPointF start, QPointF end);
+    
 
 protected:
     void hoverEnterEvent(QGraphicsSceneHoverEvent*) override {
@@ -198,6 +211,28 @@ protected:
             emit segmentSelected("route",
                                  QString::fromStdString(m_route->id));
         }
+	emit segmentSelected("route", QString::fromStdString(m_route->id));
+
+        // Retrieve the line geometry
+        QLineF line = this->line();
+
+        // Retrieve room origin (store this in addRoute)
+        double ox = data(2).toDouble();
+        double oy = data(3).toDouble();
+        QPointF roomOriginPx(ox, oy);
+
+        // Convert pixel → meter
+        QPointF start_m = (line.p1() - roomOriginPx) / S;
+        QPointF end_m   = (line.p2() - roomOriginPx) / S;
+
+	emit routeSelectedDetailed(
+	    QString::fromStdString(m_route->id),
+	    QString::fromStdString(m_segment->type),
+	    QString::fromStdString(m_segment->room_id),
+	    start_m,
+	    end_m
+	);
+ 
         QGraphicsLineItem::mousePressEvent(e);
     }
 
@@ -247,6 +282,16 @@ public:
 signals:
     void deviceMoved(QString id, QPointF newPosMeters);
     void elementSelected(QString type, QString id);
+
+    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters);
+    void routeSelectedDetailed(QString id, QString type, QString room,
+                               QPointF start, QPointF end);
+    void wallSelectedDetailed(QString id, QPointF a, QPointF b, double thickness);
+    void roomSelectedDetailed(QString id, QPointF origin, QSizeF size);
+
+    void nothingSelected();
+
+    
 
 public slots:
     void deleteSelected() {
@@ -308,6 +353,9 @@ private:
                              room.dimensions.length_m * S,
                              QPen(Qt::gray));
         rect->setZValue(-10);
+        
+        rect->setData(0, "room");
+        rect->setData(1, QString::fromStdString(room.id));
 
         auto* label = addText(QString::fromStdString(room.id));
         label->setPos(origin + QPointF(5, 5));
@@ -318,11 +366,14 @@ private:
             QPointF a = origin + QPointF(w.start[0] * S, w.start[1] * S);
             QPointF b = origin + QPointF(w.end[0] * S, w.end[1] * S);
 
-            double thickness = w.thickness_m * (S / 0.15);
+            double thickness = w.thickness_m * S;
             auto* line = addLine(QLineF(a, b),
                                  QPen(Qt::black, thickness));
             line->setData(0, "wall");
             line->setData(1, QString::fromStdString(w.id));
+            line->setData(2, origin.x());
+            line->setData(3, origin.y());
+
             line->setZValue(0);
         }
 
@@ -337,8 +388,11 @@ private:
             connect(item, &DeviceItem::deviceMovedMeters,
                     this, &InstallationScene::deviceMoved);
             connect(item, &DeviceItem::deviceSelected,
-                    this, &InstallationScene::elementSelected);
+                    this, &InstallationScene::elementSelected);        
+            connect(item, &DeviceItem::deviceSelectedDetailed,
+                    this, &InstallationScene::deviceSelectedDetailed);
         }
+
     }
 
     // ---------------------- Routes ----------------------
@@ -365,7 +419,13 @@ private:
 
             connect(item, &RouteSegmentItem::segmentSelected,
                     this, &InstallationScene::elementSelected);
+            connect(item, &RouteSegmentItem::routeSelectedDetailed,
+                    this, &InstallationScene::routeSelectedDetailed);
         }
+        
+
+
+        
     }
 
     // ---------------------- Deletion helpers ----------------------
@@ -395,5 +455,69 @@ private:
         removeItem(segItem);
         delete segItem;
     }
+    
+void mousePressEvent(QGraphicsSceneMouseEvent* e) override {
+    QGraphicsItem* item = itemAt(e->scenePos(), QTransform());
+
+    if (!item) {
+        emit nothingSelected();
+        QGraphicsScene::mousePressEvent(e);
+        return;
+    }
+
+    QVariant kind = item->data(0);
+    if (!kind.isValid()) {
+        emit nothingSelected();
+        QGraphicsScene::mousePressEvent(e);
+        return;
+    }
+
+    QString k = kind.toString();
+
+        // ---------------- Room selection ----------------
+if (k == "room") {
+    QString id = item->data(1).toString();
+    auto* rectItem = static_cast<QGraphicsRectItem*>(item);
+    QRectF r = rectItem->rect();
+
+    // Convert pixel → meter
+    QPointF origin_m(r.x() / S, r.y() / S);
+    QSizeF size_m(r.width() / S, r.height() / S);
+
+    emit roomSelectedDetailed(id, origin_m, size_m);
+}
+
+
+        // ---------------- Wall selection ----------------
+if (k == "wall") {
+    QString id = item->data(1).toString();
+    auto* lineItem = static_cast<QGraphicsLineItem*>(item);
+
+    // Retrieve the line geometry
+    QLineF line = lineItem->line();
+
+    // Retrieve room origin (stored earlier)
+    double ox = item->data(2).toDouble();
+    double oy = item->data(3).toDouble();
+    QPointF roomOriginPx(ox, oy);
+
+    // Convert pixel → meter
+    QPointF start_m = (line.p1() - roomOriginPx) / S;
+    QPointF end_m   = (line.p2() - roomOriginPx) / S;
+
+    // Convert thickness
+    double thickness_px = lineItem->pen().widthF();
+    double thickness_m = thickness_px / S;
+
+    emit wallSelectedDetailed(id, start_m, end_m, thickness_m);
+}
+
+
+
+
+    QGraphicsScene::mousePressEvent(e);
+}
+    
+    
 };
 

@@ -17,6 +17,7 @@ set(HEADERS
     #Visualise.hpp
     InstallationView.hpp
     InstallationScene.hpp
+    InspectorPanel.hpp
 )
 
 add_executable(rebt_checker ${SOURCES} ${HEADERS})
