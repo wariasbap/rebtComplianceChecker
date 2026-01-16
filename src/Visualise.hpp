@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 
+#include <QPointF>
+
 #include "Geometry.hpp"
 #include "Routing.hpp"
 #include "Electrical.hpp"
@@ -87,6 +89,35 @@ private:
 };
 
 // ---------------------- helpers ----------------------
+
+static double distancePointToSegment(const QPointF& p,
+                                     const QPointF& a,
+                                     const QPointF& b)
+{
+    // Vector AB
+    double ABx = b.x() - a.x();
+    double ABy = b.y() - a.y();
+
+    // Vector AP
+    double APx = p.x() - a.x();
+    double APy = p.y() - a.y();
+
+    double ab2 = ABx*ABx + ABy*ABy;
+    if (ab2 == 0.0)
+        return std::hypot(APx, APy); // a == b
+
+    // Project AP onto AB, clamp t to [0,1]
+    double t = (APx*ABx + APy*ABy) / ab2;
+    t = std::max(0.0, std::min(1.0, t));
+
+    // Closest point on segment
+    double cx = a.x() + t * ABx;
+    double cy = a.y() + t * ABy;
+
+    // Distance PC
+    return std::hypot(p.x() - cx, p.y() - cy);
+}
+
 
 inline std::string routeColor(const std::string& type) {
     if (type == "wall_chase")      return "#FF8800";
