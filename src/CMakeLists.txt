@@ -18,15 +18,19 @@ set(HEADERS
     InstallationView.hpp
     InstallationScene.hpp
     InspectorPanel.hpp
+    Installation3DView.hpp
 )
 
 add_executable(rebt_checker ${SOURCES} ${HEADERS})
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets 3DCore 3DRender 3DExtras)
 
 target_link_libraries(rebt_checker
     PRIVATE
         Qt6::Widgets
+        Qt6::3DCore
+        Qt6::3DRender
+        Qt6::3DExtras
         nlohmann_json::nlohmann_json
 )
 

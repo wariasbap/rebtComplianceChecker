@@ -1,12 +1,14 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QDockWidget>
+#include <QTabWidget>
 #include <iostream>
 #include <fstream>
 
 #include "InstallationScene.hpp"
 #include "InstallationView.hpp"
 #include "InspectorPanel.hpp"
+#include "Installation3DView.hpp"
 #include "JsonAdapters.hpp"
 
 int main(int argc, char** argv) {
@@ -27,13 +29,22 @@ int main(int argc, char** argv) {
     nlohmann::json j;
     f >> j;
 
-    Installation inst = j.get<Installation>();
+    auto* inst = new Installation(j.get<Installation>());
 
     auto* scene = new InstallationScene();
-    scene->setInstallation(&inst);
+    scene->setInstallation(inst);
 
     auto* view = new InstallationView();
     view->setScene(scene);
+    
+    // Create 3D view
+    auto* view3D = new Installation3DView();
+    view3D->setInstallation(inst);
+    
+    // Create tab widget to switch between 2D and 3D views
+    auto* tabWidget = new QTabWidget();
+    tabWidget->addTab(view, "2D View");
+    tabWidget->addTab(view3D, "3D View");
 
     QObject::connect(scene, &InstallationScene::elementSelected,
                      [](QString type, QString id){
@@ -41,7 +52,7 @@ int main(int argc, char** argv) {
                      });
 
     QMainWindow win;
-    win.setCentralWidget(view);
+    win.setCentralWidget(tabWidget);
     win.resize(1400, 900);
     win.show();
 

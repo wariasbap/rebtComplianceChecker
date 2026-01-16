@@ -81,7 +81,7 @@ public:
 signals:
     void deviceMovedMeters(QString id, QPointF newPosMeters);
     void deviceSelected(QString type, QString id);
-    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters);
+    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters, double zMeters);
     
 
 protected:
@@ -121,16 +121,16 @@ protected:
         if (e->button() == Qt::LeftButton && m_device) {
             emit deviceSelected("device",
                                 QString::fromStdString(m_device->id));
+            
+            emit deviceSelectedDetailed(
+                QString::fromStdString(m_device->id),
+                QString::fromStdString(m_device->type),
+                QPointF(m_device->position[0], m_device->position[1]),
+                m_device->position[2]
+            );
         }
         
-                emit deviceSelectedDetailed(
-    QString::fromStdString(m_device->id),
-    QString::fromStdString(m_device->type),
-    QPointF(m_device->position[0], m_device->position[1])
-);
         QGraphicsEllipseItem::mousePressEvent(e);
-
-
     }
 
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* e) override {
@@ -190,7 +190,8 @@ public:
 signals:
     void segmentSelected(QString type, QString id);
     void routeSelectedDetailed(QString id, QString type, QString room,
-                               QPointF start, QPointF end);
+                               QPointF start, QPointF end,
+                           double zStart, double zEnd);                               
     
 
 protected:
@@ -230,7 +231,9 @@ protected:
 	    QString::fromStdString(m_segment->type),
 	    QString::fromStdString(m_segment->room_id),
 	    start_m,
-	    end_m
+	    end_m,
+        m_segment->start[2],
+        m_segment->end[2]
 	);
  
         QGraphicsLineItem::mousePressEvent(e);
@@ -283,11 +286,11 @@ signals:
     void deviceMoved(QString id, QPointF newPosMeters);
     void elementSelected(QString type, QString id);
 
-    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters);
+    void deviceSelectedDetailed(QString id, QString type, QPointF posMeters, double zMeters);
     void routeSelectedDetailed(QString id, QString type, QString room,
-                               QPointF start, QPointF end);
-    void wallSelectedDetailed(QString id, QPointF a, QPointF b, double thickness);
-    void roomSelectedDetailed(QString id, QPointF origin, QSizeF size);
+                               QPointF start, QPointF end, double zStart, double zEnd);
+    void wallSelectedDetailed(QString id, QPointF a, QPointF b, double thickness, double zStart, double zEnd);
+    void roomSelectedDetailed(QString id, QPointF origin, QSizeF size, double z);
 
     void nothingSelected();
 
@@ -356,6 +359,8 @@ private:
         
         rect->setData(0, "room");
         rect->setData(1, QString::fromStdString(room.id));
+        rect->setData(2, room.origin[2]);  // Floor Z position
+        rect->setData(3, room.dimensions.height_m);  // Room height
 
         auto* label = addText(QString::fromStdString(room.id));
         label->setPos(origin + QPointF(5, 5));
@@ -373,7 +378,9 @@ private:
             line->setData(1, QString::fromStdString(w.id));
             line->setData(2, origin.x());
             line->setData(3, origin.y());
-
+            // Walls extend from floor (0) to ceiling (room height)
+            line->setData(4, 0.0);  // Floor Z
+            line->setData(5, room.dimensions.height_m);  // Ceiling Z
             line->setZValue(0);
         }
 
@@ -415,6 +422,8 @@ private:
             addItem(item);
             item->setData(0, "route");
             item->setData(1, QString::fromStdString(route.id));
+            item->setData(2, origin.x());
+            item->setData(3, origin.y());
             item->setZValue(5);
 
             connect(item, &RouteSegmentItem::segmentSelected,
@@ -484,7 +493,10 @@ if (k == "room") {
     QPointF origin_m(r.x() / S, r.y() / S);
     QSizeF size_m(r.width() / S, r.height() / S);
 
-    emit roomSelectedDetailed(id, origin_m, size_m);
+    // Retrieve room height from dimensions
+    double height = item->data(3).toDouble();
+    
+    emit roomSelectedDetailed(id, origin_m, size_m, height);
 }
 
 
@@ -509,7 +521,11 @@ if (k == "wall") {
     double thickness_px = lineItem->pen().widthF();
     double thickness_m = thickness_px / S;
 
-    emit wallSelectedDetailed(id, start_m, end_m, thickness_m);
+    // Retrieve Z
+    double zStart = item->data(4).toDouble();
+    double zEnd   = item->data(5).toDouble();
+
+    emit wallSelectedDetailed(id, start_m, end_m, thickness_m, zStart, zEnd);
 }
 
 
