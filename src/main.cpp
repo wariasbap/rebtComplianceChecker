@@ -1,11 +1,18 @@
 // main.cpp
+
 #include <iostream>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "JsonAdapters.hpp"
 #include "Visualise.hpp"
+#include <QApplication>
+#include <QMainWindow>
+#include "InstallationView.hpp"
 
 int main(int argc, char** argv) {
+
+    QApplication app(argc, argv);
+
     if (argc < 2) {
         std::cerr << "Usage: rebt_checker installation.json\n";
         return 1;
@@ -27,11 +34,21 @@ int main(int argc, char** argv) {
     std::cout << "Rooms: " << inst.rooms.size()
               << ", Circuits: " << inst.circuits.size()
               << ", Routes: " << inst.routes.size() << "\n";
-              
+
     std::string svg = visualiseInstallation(inst);
     std::ofstream out("installation.svg");
-    out << svg;              
+    out << svg;
 
-    return 0;
+    auto* view = new InstallationView();
+    view->setInstallation(&inst);
+
+    QMainWindow win;
+    win.setCentralWidget(view);
+    win.resize(1200, 800);
+    win.show(); 
+
+    return app.exec();
+
+    //return 0;
 }
 

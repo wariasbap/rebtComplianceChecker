@@ -1,7 +1,11 @@
 // Electrical.hpp
+
 #pragma once
 #include <string>
 #include <vector>
+
+#include "Routing.hpp"
+#include "Geometry.hpp"
 
 struct Environment {
     double ambientTemperatureC;
