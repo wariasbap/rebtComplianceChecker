@@ -16,6 +16,7 @@ set(HEADERS
     SvgHelper.hpp
     Visualise.hpp
     InstallationView.hpp
+    InstallationScene.hpp
 )
 
 add_executable(rebt_checker ${SOURCES} ${HEADERS})

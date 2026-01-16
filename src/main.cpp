@@ -1,17 +1,15 @@
-// main.cpp
-
-#include <iostream>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include "JsonAdapters.hpp"
-#include "Visualise.hpp"
 #include <QApplication>
 #include <QMainWindow>
+#include <iostream>
+#include <fstream>
+
+#include "InstallationScene.hpp"
 #include "InstallationView.hpp"
+#include "JsonAdapters.hpp"
 
 int main(int argc, char** argv) {
-
     QApplication app(argc, argv);
+
 
     if (argc < 2) {
         std::cerr << "Usage: rebt_checker installation.json\n";
@@ -24,31 +22,23 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+
     nlohmann::json j;
     f >> j;
 
     Installation inst = j.get<Installation>();
 
-    std::cout << "Installation: " << inst.name
-              << " (standard: " << inst.standard << ")\n";
-    std::cout << "Rooms: " << inst.rooms.size()
-              << ", Circuits: " << inst.circuits.size()
-              << ", Routes: " << inst.routes.size() << "\n";
-
-    std::string svg = visualiseInstallation(inst);
-    std::ofstream out("installation.svg");
-    out << svg;
+    auto* scene = new InstallationScene();
+    scene->setInstallation(&inst);
 
     auto* view = new InstallationView();
-    view->setInstallation(&inst);
+    view->setScene(scene);
 
     QMainWindow win;
     win.setCentralWidget(view);
-    win.resize(1200, 800);
-    win.show(); 
+    win.resize(1400, 900);
+    win.show();
 
     return app.exec();
-
-    //return 0;
 }
 
